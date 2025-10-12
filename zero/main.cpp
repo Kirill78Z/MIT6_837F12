@@ -1,3 +1,4 @@
+#include <GLEW/glew.h>
 #include "GL/freeglut.h"
 #include <cmath>
 #include <iostream>
@@ -5,18 +6,35 @@
 #include <vector>
 #include "vecmath.h"
 #include "main.h"
+
+#include <map>
+
 using namespace std;
+
+void APIENTRY DebugCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam) {
+	std::cerr << "OpenGL Debug Message: " << message << std::endl;
+}
+
+struct Vertex {
+	GLfloat pos[3];
+	GLfloat norm[3];
+};
 
 // Globals
 
-// This is the list of points (3D vectors)
-vector<Vector3f> vecv;
+// input data
+vector<Vector3f> inputPositions;
+vector<Vector3f> inputNormals;
+vector<vector<unsigned>> inputFaces;
 
-// This is the list of normals (also 3D vectors)
-vector<Vector3f> vecn;
+// converted input data to upload to GPU
+vector<Vertex> uniqueVertices;
+vector<unsigned int> indices;
 
-// This is the list of faces (indices into vecv and vecn)
-vector<vector<unsigned>> vecf;
+// GPU data
+GLuint vertexBufferObjectVerticesId;
+GLuint elementBufferObject; //indices
+
 
 GLfloat diffColors[4][4] = { {0.5, 0.5, 0.9, 1.0}, {0.9, 0.5, 0.5, 1.0}, {0.5, 0.9, 0.3, 1.0}, {0.3, 0.8, 0.9, 1.0} };
 
@@ -118,33 +136,20 @@ void drawScene(void)
 	glLightfv(GL_LIGHT0, GL_DIFFUSE, Lt0diff);
 	glLightfv(GL_LIGHT0, GL_POSITION, Lt0pos);
 
-	// This GLUT method draws a teapot.  You should replace
-	// it with code which draws the object you loaded.
-	//glutSolidTeapot(1.0);
-	for (vector<unsigned> face : vecf) {
-		unsigned a = face[0];
-		unsigned c = face[1];
-		unsigned d = face[2];
-		unsigned f = face[3];
-		unsigned g = face[4];
-		unsigned i = face[5];
 
+	glEnableClientState(GL_VERTEX_ARRAY);
+	glEnableClientState(GL_NORMAL_ARRAY);
+	glVertexPointer(3, GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, pos));
+	glNormalPointer(GL_FLOAT, sizeof(Vertex), (void*)offsetof(Vertex, norm));
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObject);
 
-		glBegin(GL_TRIANGLES);
-		glNormal3d(vecn[c - 1][0], vecn[c - 1][1], vecn[c - 1][2]);
-		glVertex3d(vecv[a - 1][0], vecv[a - 1][1], vecv[a - 1][2]);
-		glNormal3d(vecn[f - 1][0], vecn[f - 1][1], vecn[f - 1][2]);
-		glVertex3d(vecv[d - 1][0], vecv[d - 1][1], vecv[d - 1][2]);
-		glNormal3d(vecn[i - 1][0], vecn[i - 1][1], vecn[i - 1][2]);
-		glVertex3d(vecv[g - 1][0], vecv[g - 1][1], vecv[g - 1][2]);
-		glEnd();
-	}
+	glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, nullptr);
 
+	glDisableClientState(GL_VERTEX_ARRAY);
+	glDisableClientState(GL_NORMAL_ARRAY);
 
 	// Dump the image to the screen.
 	glutSwapBuffers();
-
-
 }
 
 // Initialize OpenGL's rendering modes
@@ -196,13 +201,13 @@ void loadInput()
 		if (s == "v") {
 			Vector3f v;
 			ss >> v[0] >> v[1] >> v[2];
-			vecv.push_back(v);
+			inputPositions.push_back(v);
 		}
 
 		if (s == "vn") {
 			Vector3f vn;
 			ss >> vn[0] >> vn[1] >> vn[2];
-			vecn.push_back(vn);
+			inputNormals.push_back(vn);
 		}
 
 		if (s == "f") {
@@ -235,9 +240,64 @@ void loadInput()
 			ss >> currIndexStr;
 			face.push_back(std::stoul(currIndexStr, nullptr, 0));
 
-			vecf.push_back(face);
+			inputFaces.push_back(face);
 		}
 	}
+
+	//In Wavefront .OBJ file we have two separate index streams: one for vertices and one for normals.
+	//in order to use vertex buffers in our viewer we need to create a new flattened vertex buffer,
+	//where each unique combination of (position, normal) gets its own vertex entry.
+	map<std::pair<unsigned, unsigned>, unsigned> vertexMap;
+
+	for (auto& face : inputFaces) {
+		for (int j = 0; j < 3; ++j) {
+			unsigned vIndex = face[j * 2 + 0]; // vertex index
+			unsigned nIndex = face[j * 2 + 1]; // normal index
+			auto key = std::make_pair(vIndex, nIndex);
+
+			auto it = vertexMap.find(key);
+			if (it != vertexMap.end()) {
+				indices.push_back(it->second);
+			}
+			else {
+				Vertex vert;
+				vert.pos[0] = inputPositions[vIndex - 1][0];
+				vert.pos[1] = inputPositions[vIndex - 1][1];
+				vert.pos[2] = inputPositions[vIndex - 1][2];
+				vert.norm[0] = inputNormals[nIndex - 1][0];
+				vert.norm[1] = inputNormals[nIndex - 1][1];
+				vert.norm[2] = inputNormals[nIndex - 1][2];
+
+				unsigned newIndex = uniqueVertices.size();
+				uniqueVertices.push_back(vert);
+				vertexMap[key] = newIndex;
+				indices.push_back(newIndex);
+			}
+		}
+	}
+}
+
+void uploadInputToGpu()
+{
+	//you can use VBOs in your program, without writing shaders, as long as your OpenGL context supports the compatibility profile
+	//The Compatibility Profile keeps all of the legacy (fixed-function) OpenGL functionality plus the modern programmable features.
+
+	glGenBuffers(1, &vertexBufferObjectVerticesId);
+	glGenBuffers(1, &elementBufferObject);
+
+	// Upload vertices
+	glBindBuffer(GL_ARRAY_BUFFER, vertexBufferObjectVerticesId);
+	glBufferData(GL_ARRAY_BUFFER,
+		uniqueVertices.size() * sizeof(Vertex),
+		uniqueVertices.data(),
+		GL_STATIC_DRAW);
+
+	// Upload indices
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObject);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
+		indices.size() * sizeof(GLuint),
+		indices.data(),
+		GL_STATIC_DRAW);
 }
 
 void time_rotate(int value) {
@@ -279,6 +339,20 @@ int main(int argc, char** argv)
 	glutInitWindowPosition(60, 60);
 	glutInitWindowSize(360, 360);
 	glutCreateWindow("Assignment 0");
+
+	//init glew
+	GLenum initResult = glewInit();
+	if (initResult != GLEW_OK)
+		return -1;
+
+	std::cout << "OpenGL version: " << glGetString(GL_VERSION) << std::endl;
+
+	// Enable debug output
+	glEnable(GL_DEBUG_OUTPUT);
+	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS); // Ensure callbacks are synchronous for easier debugging
+	glDebugMessageCallback(DebugCallback, nullptr);
+
+	uploadInputToGpu();
 
 	// Initialize OpenGL parameters.
 	initRendering();
