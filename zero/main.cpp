@@ -354,7 +354,7 @@ void uploadInputToGpu()
 }
 
 void time_rotate(int value) {
-	const float timeRotateDeg = 0.5f;
+	const float timeRotateDeg = 0.05f;
 	if (value == 1)
 	{
 		if (IS_ROTATE) {
@@ -365,7 +365,7 @@ void time_rotate(int value) {
 
 			SetUpCamera();
 		}
-		glutTimerFunc(100, time_rotate, 1);
+		glutTimerFunc(1, time_rotate, 1);
 	}
 }
 // Main routine.
