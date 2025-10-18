@@ -1,3 +1,4 @@
+#define _USE_MATH_DEFINES
 #include <GLEW/glew.h>
 #include "GL/freeglut.h"
 #include <cmath>
@@ -35,7 +36,18 @@ vector<unsigned int> indices;
 GLuint vertexBufferObjectVerticesId;
 GLuint elementBufferObject; //indices
 
+//navigation
+int mouseX = 0;
+int mouseY = 0;
+bool rotateByMouseMove = false;
 
+const float DegToRad = M_PI / 180.0f;
+
+Vector3f cameraDir(0, 0, -1);
+Vector3f cameraUp(0, 1, 0);
+Vector3f cameraPos(0, 0, 5);
+
+//other
 GLfloat diffColors[4][4] = { {0.5, 0.5, 0.9, 1.0}, {0.9, 0.5, 0.5, 1.0}, {0.5, 0.9, 0.3, 1.0}, {0.3, 0.8, 0.9, 1.0} };
 
 // You will need more global variables to implement color and position changes
@@ -106,6 +118,47 @@ void specialFunc(int key, int x, int y)
 
 	// this will refresh the screen so that the user sees the light position
 	glutPostRedisplay();
+}
+
+void SetUpCamera()
+{
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+	Vector3f lookAtCenter = cameraPos + cameraDir;
+	gluLookAt(cameraPos.x(), cameraPos.y(), cameraPos.z(),
+		lookAtCenter.x(), lookAtCenter.y(), lookAtCenter.z(),
+		cameraUp.x(), cameraUp.y(), cameraUp.z());
+	glutPostRedisplay();
+}
+
+void mouseBtnCallback(int button, int state, int x, int y)
+{
+	if (button == GLUT_MIDDLE_BUTTON)
+	{
+		rotateByMouseMove = state == GLUT_DOWN;
+		mouseX = x;
+		mouseY = y;
+	}
+}
+
+void mouseMoveCallback(int x, int y)
+{
+	int displacementX = x - mouseX;
+	int displacementY = y - mouseY;
+	mouseX = x;
+	mouseY = y;
+	if (rotateByMouseMove)
+	{
+		Vector3f verticalRotateAxis = Vector3f::cross(cameraDir, cameraUp).normalized();
+		Matrix3f rotationMatrix =
+			Matrix3f::rotation(Vector3f(0, 1, 0), -displacementX * 0.002f)
+			* Matrix3f::rotation(verticalRotateAxis, -displacementY * 0.002f);
+		cameraDir = rotationMatrix * cameraDir;
+		cameraUp = rotationMatrix * cameraUp;
+		cameraPos = rotationMatrix * cameraPos;
+
+		SetUpCamera();
+	}
 }
 
 // This function is responsible for displaying the object.
@@ -294,36 +347,27 @@ void uploadInputToGpu()
 
 	// Upload indices
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementBufferObject);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER,
 		indices.size() * sizeof(GLuint),
 		indices.data(),
 		GL_STATIC_DRAW);
 }
 
 void time_rotate(int value) {
-	if (value == 1) {
+	const float timeRotateDeg = 0.5f;
+	if (value == 1)
+	{
 		if (IS_ROTATE) {
-			glMatrixMode(GL_MODELVIEW);
-			glRotatef(5, 0, 1, 0);
-			glutPostRedisplay();
+			Matrix3f rotationMatrix = Matrix3f::rotation(Vector3f(0, 1, 0), timeRotateDeg * DegToRad);
+			cameraDir = rotationMatrix * cameraDir;
+			cameraUp = rotationMatrix * cameraUp;
+			cameraPos = rotationMatrix * cameraPos;
+
+			SetUpCamera();
 		}
 		glutTimerFunc(100, time_rotate, 1);
 	}
 }
-
-void initCamera()
-{
-	// Rotate the image
-	glMatrixMode(GL_MODELVIEW);  // Current matrix affects objects positions
-	glLoadIdentity();              // Initialize to the identity
-
-	// Position the camera at [0,0,5], looking at [0,0,0],
-	// with [0,1,0] as the up direction.
-	gluLookAt(0.0, 0.0, 5.0,
-		0.0, 0.0, 0.0,
-		0.0, 1.0, 0.0);
-}
-
 // Main routine.
 // Set up OpenGL, define the callbacks and start the main loop
 int main(int argc, char** argv)
@@ -360,10 +404,12 @@ int main(int argc, char** argv)
 	// Set up callback functions for key presses
 	glutKeyboardFunc(keyboardFunc); // Handles "normal" ascii symbols
 	glutSpecialFunc(specialFunc);   // Handles "special" keyboard keys
+	glutMouseFunc(mouseBtnCallback);
+	glutMotionFunc(mouseMoveCallback);
 
-	initCamera();
+	SetUpCamera();
 
-	glutTimerFunc(100, time_rotate, 1);
+	glutTimerFunc(1, time_rotate, 1);
 
 	// Set up the callback function for resizing windows
 	glutReshapeFunc(reshapeFunc);
