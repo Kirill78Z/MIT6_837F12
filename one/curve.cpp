@@ -19,6 +19,23 @@ namespace
 
 }
 
+const Matrix4f BSplineBasis(
+	1.0f / 6.0f, -3.0f / 6.0f, 3.0f / 6.0f, -1.0f / 6.0f,
+	4.0f / 6.0f, 0.0f, -6.0f / 6.0f, 3.0f / 6.0f,
+	1.0f / 6.0f, 3.0f / 6.0f, 3.0f / 6.0f, -3.0f / 6.0f,
+	0.0f, 0.0f, 0.0f, 1.0f / 6.0f);
+
+const Matrix4f BezierBasis(
+	1.0f, -3.0f, 3.0f, -1.0f,
+	0.0f, 3.0f, -6.0f, 3.0f,
+	0.0f, 0.0f, 3.0f, -3.0f,
+	0.0f, 0.0f, 0.0f, 1.0f
+);
+
+const Matrix4f BezierBasisInversed = BezierBasis.inverse();
+
+const Matrix4f BSplineBasisByBezierBasisInversed = BSplineBasis * BezierBasisInversed;
+
 Vector3f getAnyNormalTo(Vector3f vec)
 {
 	const Vector3f basisVectors[] = { Vector3f::UP ,Vector3f::RIGHT ,Vector3f::FORWARD };
@@ -65,13 +82,12 @@ Curve evalBezier(const vector< Vector3f >& P, unsigned steps)
 		else
 		{
 			//use previous binormal to get next normal
-			result[i].N = Vector3f::cross(result[i-1].B, result[i].T);
+			result[i].N = Vector3f::cross(result[i - 1].B, result[i].T);
 		}
 
 		result[i].B = Vector3f::cross(result[i].T, result[i].N).normalized();
 	}
 
-	// Right now this will just return this empty curve.
 	return result;
 }
 
@@ -84,24 +100,40 @@ Curve evalBspline(const vector< Vector3f >& P, unsigned steps)
 		exit(0);
 	}
 
-	// TODO:
-	// It is suggested that you implement this function by changing
-	// basis from B-spline to Bezier.  That way, you can just call
-	// your evalBezier function.
+	static const Vector4f col0 = BSplineBasisByBezierBasisInversed.getCol(0);
+	static const Vector4f col1 = BSplineBasisByBezierBasisInversed.getCol(1);
+	static const Vector4f col2 = BSplineBasisByBezierBasisInversed.getCol(2);
+	static const Vector4f col3 = BSplineBasisByBezierBasisInversed.getCol(3);
 
-	cerr << "\t>>> evalBSpline has been called with the following input:" << endl;
+	Curve result;
 
-	cerr << "\t>>> Control points (type vector< Vector3f >): " << endl;
-	for (unsigned i = 0; i < P.size(); ++i)
+	for (int i = 0; i < P.size() - 3; ++i)
 	{
-		cerr << "\t>>> " << P[i] << endl;
+		vector<Vector3f> P_b_spl_seg = { P[i],P[i + 1], P[i + 2], P[i + 3] };
+		vector<Vector3f> P_bezier =
+		{
+			Vector3f(
+				P_b_spl_seg[0].x() * col0[0] + P_b_spl_seg[1].x() * col0[1] + P_b_spl_seg[2].x() * col0[2] + P_b_spl_seg[3].x() * col0[3],
+				P_b_spl_seg[0].y() * col0[0] + P_b_spl_seg[1].y() * col0[1] + P_b_spl_seg[2].y() * col0[2] + P_b_spl_seg[3].y() * col0[3],
+				P_b_spl_seg[0].z() * col0[0] + P_b_spl_seg[1].z() * col0[1] + P_b_spl_seg[2].z() * col0[2] + P_b_spl_seg[3].z() * col0[3]),
+			Vector3f(
+				P_b_spl_seg[0].x() * col1[0] + P_b_spl_seg[1].x() * col1[1] + P_b_spl_seg[2].x() * col1[2] + P_b_spl_seg[3].x() * col1[3],
+				P_b_spl_seg[0].y() * col1[0] + P_b_spl_seg[1].y() * col1[1] + P_b_spl_seg[2].y() * col1[2] + P_b_spl_seg[3].y() * col1[3],
+				P_b_spl_seg[0].z() * col1[0] + P_b_spl_seg[1].z() * col1[1] + P_b_spl_seg[2].z() * col1[2] + P_b_spl_seg[3].z() * col1[3]),
+			Vector3f(
+				P_b_spl_seg[0].x() * col2[0] + P_b_spl_seg[1].x() * col2[1] + P_b_spl_seg[2].x() * col2[2] + P_b_spl_seg[3].x() * col2[3],
+				P_b_spl_seg[0].y() * col2[0] + P_b_spl_seg[1].y() * col2[1] + P_b_spl_seg[2].y() * col2[2] + P_b_spl_seg[3].y() * col2[3],
+				P_b_spl_seg[0].z() * col2[0] + P_b_spl_seg[1].z() * col2[1] + P_b_spl_seg[2].z() * col2[2] + P_b_spl_seg[3].z() * col2[3]),
+			Vector3f(
+				P_b_spl_seg[0].x() * col3[0] + P_b_spl_seg[1].x() * col3[1] + P_b_spl_seg[2].x() * col3[2] + P_b_spl_seg[3].x() * col3[3],
+				P_b_spl_seg[0].y() * col3[0] + P_b_spl_seg[1].y() * col3[1] + P_b_spl_seg[2].y() * col3[2] + P_b_spl_seg[3].y() * col3[3],
+				P_b_spl_seg[0].z() * col3[0] + P_b_spl_seg[1].z() * col3[1] + P_b_spl_seg[2].z() * col3[2] + P_b_spl_seg[3].z() * col3[3]),
+		};
+		Curve bezier = evalBezier(P_bezier, steps);
+		result.insert(result.end(), bezier.begin(), bezier.end());
 	}
 
-	cerr << "\t>>> Steps (type steps): " << steps << endl;
-	cerr << "\t>>> Returning empty curve." << endl;
-
-	// Return an empty curve right now.
-	return Curve();
+	return result;
 }
 
 Curve evalCircle(float radius, unsigned steps)
