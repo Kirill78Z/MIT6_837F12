@@ -51,6 +51,35 @@ Vector3f getAnyNormalTo(Vector3f vec)
 }
 
 
+void populateBezierCurveSegment(Curve& result, const vector<Vector3f>& P, int start_index, unsigned steps)
+{
+	for (unsigned curve_pt_index = start_index, i = 0; curve_pt_index <= start_index + steps; ++curve_pt_index, ++i)
+	{
+		float t = static_cast<float>(i) / steps;
+		float one_minus_t = (1 - t);
+		result[curve_pt_index].V =
+			P[0] * one_minus_t * one_minus_t * one_minus_t
+			+ P[1] * 3 * t * one_minus_t * one_minus_t
+			+ P[2] * 3 * t * t * one_minus_t
+			+ P[3] * t * t * t;
+
+		result[curve_pt_index].T = (-3 * (P[0] * one_minus_t * one_minus_t + P[1] * (-3 * t * t + 4 * t - 1) + t * (3 * P[2] * t - 2 * P[2] - P[3] * t))).normalized();
+
+		if (curve_pt_index == 0)
+		{
+			//first normal is taken arbitrary
+			result[curve_pt_index].N = getAnyNormalTo(result[curve_pt_index].T);
+		}
+		else
+		{
+			//use previous binormal to get next normal
+			result[curve_pt_index].N = Vector3f::cross(result[curve_pt_index - 1].B, result[curve_pt_index].T);
+		}
+
+		result[curve_pt_index].B = Vector3f::cross(result[curve_pt_index].T, result[curve_pt_index].N).normalized();
+	}
+}
+
 Curve evalBezier(const vector< Vector3f >& P, unsigned steps)
 {
 	// Check
@@ -62,31 +91,7 @@ Curve evalBezier(const vector< Vector3f >& P, unsigned steps)
 
 	Curve result(steps + 1);
 
-	for (unsigned i = 0; i <= steps; ++i)
-	{
-		float t = static_cast<float>(i) / steps;
-		float one_minus_t = (1 - t);
-		result[i].V =
-			P[0] * one_minus_t * one_minus_t * one_minus_t
-			+ P[1] * 3 * t * one_minus_t * one_minus_t
-			+ P[2] * 3 * t * t * one_minus_t
-			+ P[3] * t * t * t;
-
-		result[i].T = (-3 * (P[0] * one_minus_t * one_minus_t + P[1] * (-3 * t * t + 4 * t - 1) + t * (3 * P[2] * t - 2 * P[2] - P[3] * t))).normalized();
-
-		if (i == 0)
-		{
-			//first normal is taken arbitrary
-			result[i].N = getAnyNormalTo(result[i].T);
-		}
-		else
-		{
-			//use previous binormal to get next normal
-			result[i].N = Vector3f::cross(result[i - 1].B, result[i].T);
-		}
-
-		result[i].B = Vector3f::cross(result[i].T, result[i].N).normalized();
-	}
+	populateBezierCurveSegment(result, P, 0, steps);
 
 	return result;
 }
@@ -100,37 +105,28 @@ Curve evalBspline(const vector< Vector3f >& P, unsigned steps)
 		exit(0);
 	}
 
-	static const Vector4f col0 = BSplineBasisByBezierBasisInversed.getCol(0);
-	static const Vector4f col1 = BSplineBasisByBezierBasisInversed.getCol(1);
-	static const Vector4f col2 = BSplineBasisByBezierBasisInversed.getCol(2);
-	static const Vector4f col3 = BSplineBasisByBezierBasisInversed.getCol(3);
+	auto cubic_segment_number = P.size() - 3;
+	Curve result(steps * cubic_segment_number + 1);
 
-	Curve result;
-
-	for (int i = 0; i < P.size() - 3; ++i)
+	for (size_t i = 0; i < cubic_segment_number; ++i)
 	{
 		vector<Vector3f> P_b_spl_seg = { P[i],P[i + 1], P[i + 2], P[i + 3] };
+		Matrix4f P_b_spl_seg_matrix(
+			P_b_spl_seg[0].x(), P_b_spl_seg[1].x(), P_b_spl_seg[2].x(), P_b_spl_seg[3].x(),
+			P_b_spl_seg[0].y(), P_b_spl_seg[1].y(), P_b_spl_seg[2].y(), P_b_spl_seg[3].y(),
+			P_b_spl_seg[0].z(), P_b_spl_seg[1].z(), P_b_spl_seg[2].z(), P_b_spl_seg[3].z(),
+			0.0f, 0.0f, 0.0f, 0.0f);
+
+		Matrix4f P_bezier_matrix = P_b_spl_seg_matrix * BSplineBasisByBezierBasisInversed;
 		vector<Vector3f> P_bezier =
 		{
-			Vector3f(
-				P_b_spl_seg[0].x() * col0[0] + P_b_spl_seg[1].x() * col0[1] + P_b_spl_seg[2].x() * col0[2] + P_b_spl_seg[3].x() * col0[3],
-				P_b_spl_seg[0].y() * col0[0] + P_b_spl_seg[1].y() * col0[1] + P_b_spl_seg[2].y() * col0[2] + P_b_spl_seg[3].y() * col0[3],
-				P_b_spl_seg[0].z() * col0[0] + P_b_spl_seg[1].z() * col0[1] + P_b_spl_seg[2].z() * col0[2] + P_b_spl_seg[3].z() * col0[3]),
-			Vector3f(
-				P_b_spl_seg[0].x() * col1[0] + P_b_spl_seg[1].x() * col1[1] + P_b_spl_seg[2].x() * col1[2] + P_b_spl_seg[3].x() * col1[3],
-				P_b_spl_seg[0].y() * col1[0] + P_b_spl_seg[1].y() * col1[1] + P_b_spl_seg[2].y() * col1[2] + P_b_spl_seg[3].y() * col1[3],
-				P_b_spl_seg[0].z() * col1[0] + P_b_spl_seg[1].z() * col1[1] + P_b_spl_seg[2].z() * col1[2] + P_b_spl_seg[3].z() * col1[3]),
-			Vector3f(
-				P_b_spl_seg[0].x() * col2[0] + P_b_spl_seg[1].x() * col2[1] + P_b_spl_seg[2].x() * col2[2] + P_b_spl_seg[3].x() * col2[3],
-				P_b_spl_seg[0].y() * col2[0] + P_b_spl_seg[1].y() * col2[1] + P_b_spl_seg[2].y() * col2[2] + P_b_spl_seg[3].y() * col2[3],
-				P_b_spl_seg[0].z() * col2[0] + P_b_spl_seg[1].z() * col2[1] + P_b_spl_seg[2].z() * col2[2] + P_b_spl_seg[3].z() * col2[3]),
-			Vector3f(
-				P_b_spl_seg[0].x() * col3[0] + P_b_spl_seg[1].x() * col3[1] + P_b_spl_seg[2].x() * col3[2] + P_b_spl_seg[3].x() * col3[3],
-				P_b_spl_seg[0].y() * col3[0] + P_b_spl_seg[1].y() * col3[1] + P_b_spl_seg[2].y() * col3[2] + P_b_spl_seg[3].y() * col3[3],
-				P_b_spl_seg[0].z() * col3[0] + P_b_spl_seg[1].z() * col3[1] + P_b_spl_seg[2].z() * col3[2] + P_b_spl_seg[3].z() * col3[3]),
+			Vector3f(P_bezier_matrix(0,0),P_bezier_matrix(1,0),P_bezier_matrix(2,0)),
+			Vector3f(P_bezier_matrix(0,1),P_bezier_matrix(1,1),P_bezier_matrix(2,1)),
+			Vector3f(P_bezier_matrix(0,2),P_bezier_matrix(1,2),P_bezier_matrix(2,2)),
+			Vector3f(P_bezier_matrix(0,3),P_bezier_matrix(1,3),P_bezier_matrix(2,3)),
 		};
-		Curve bezier = evalBezier(P_bezier, steps);
-		result.insert(result.end(), bezier.begin(), bezier.end());
+
+		populateBezierCurveSegment(result, P_bezier, i * steps, steps);
 	}
 
 	return result;
