@@ -19,6 +19,20 @@ namespace
 	}
 }
 
+void addTriangles(Surface& surface, unsigned path_step, unsigned profile_step, unsigned profile_steps_number)
+{
+	Tup3u triangle;
+
+	triangle[0] = path_step * profile_steps_number + profile_step;
+	triangle[1] = (path_step - 1) * profile_steps_number + profile_step - 1;
+	triangle[2] = (path_step - 1) * profile_steps_number + profile_step;
+	surface.VF.push_back(triangle);
+
+	triangle[1] = path_step * profile_steps_number + profile_step - 1;
+	triangle[2] = (path_step - 1) * profile_steps_number + profile_step - 1;
+	surface.VF.push_back(triangle);
+}
+
 Surface makeSurfRev(const Curve& profile, unsigned steps)
 {
 	Surface surface;
@@ -42,21 +56,17 @@ Surface makeSurfRev(const Curve& profile, unsigned steps)
 
 			//normal (assume normals will always point to the left of the direction of travel)
 			//Vector3f normal = Vector3f::cross(profile[curve_pt_index].T, -Vector3f::FORWARD);
+
+			//INTERESTING FACT: If a point is transformed by matrix M (INCLUDING NON-UNIFORM SCALING OR SHEAR),
+			//the correct way to transform a normal vector is by using the inverse transpose of the upper-left 3x3 part of M.
+			//SO IT IS MORE GENERAL WAY TRANSFORM NORMALS, BUT WE DON'T NEED IT HERE
+
 			surface.VN.push_back(rotation_matrix * profile[curve_pt_index].N);
 
 			if (surf_rotation_step > 0 && curve_pt_index > 0)
 			{
 				//triangles
-				Tup3u triangle;
-
-				triangle[0] = surf_rotation_step * profile.size() + curve_pt_index;
-				triangle[1] = (surf_rotation_step - 1) * profile.size() + curve_pt_index - 1;
-				triangle[2] = (surf_rotation_step - 1) * profile.size() + curve_pt_index;
-				surface.VF.push_back(triangle);
-
-				triangle[1] = surf_rotation_step * profile.size() + curve_pt_index - 1;
-				triangle[2] = (surf_rotation_step - 1) * profile.size() + curve_pt_index - 1;
-				surface.VF.push_back(triangle);
+				addTriangles(surface, surf_rotation_step, curve_pt_index, profile.size());
 			}
 		}
 
@@ -75,9 +85,36 @@ Surface makeGenCyl(const Curve& profile, const Curve& sweep)
 		exit(0);
 	}
 
-	// TODO: Here you should build the surface.  See surf.h for details.
+	for (unsigned sweep_step = 0; sweep_step < sweep.size(); ++sweep_step)
+	{
+		const CurvePoint& sweep_pt = sweep[sweep_step];
+		Matrix4f position_transform = Matrix4f::identity();
+		position_transform.setCol(0, Vector4f(sweep_pt.N, 0.0f));
+		position_transform.setCol(1, Vector4f(sweep_pt.B, 0.0f));
+		position_transform.setCol(2, Vector4f(sweep_pt.T, 0.0f));
+		position_transform.setCol(3, Vector4f(sweep_pt.V, 1.0f));
 
-	cerr << "\t>>> makeGenCyl called (but not implemented).\n\t>>> Returning empty surface." << endl;
+		Matrix3f normal_transform = position_transform.getSubmatrix3x3(0,0);
+
+		for (unsigned profile_step = 0; profile_step < profile.size(); ++profile_step)
+		{
+			//vertex
+			Vector4f pos(profile[profile_step].V, 1.0f);
+			pos = position_transform * pos;
+			surface.VV.push_back(pos.xyz());
+
+			//normal
+			Vector3f normal = normal_transform * profile[profile_step].N;
+			//normal.negate();//if profile is circle need to negate for proper render
+			surface.VN.push_back(normal);
+
+			if (sweep_step > 0 && profile_step > 0)
+			{
+				//triangles
+				addTriangles(surface, sweep_step, profile_step, profile.size());
+			}
+		}
+	}
 
 	return surface;
 }
