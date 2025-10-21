@@ -38,7 +38,7 @@ const Matrix4f BSplineBasisByBezierBasisInversed = BSplineBasis * BezierBasisInv
 
 Vector3f getAnyNormalTo(Vector3f vec)
 {
-	const Vector3f basisVectors[] = { Vector3f::UP ,Vector3f::RIGHT ,Vector3f::FORWARD };
+	static const Vector3f basisVectors[] = { -Vector3f::FORWARD,Vector3f::UP ,Vector3f::RIGHT , };
 
 	Vector3f crossProduct;
 	int i = 0;
