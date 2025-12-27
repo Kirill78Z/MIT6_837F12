@@ -1,24 +1,15 @@
 //
-// "$Id: Fl_Button.H 7903 2010-11-28 21:06:39Z matt $"
+// "$Id$"
 //
 // Button header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2010 by Bill Spitzak and others.
+// Copyright 1998-2014 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file. If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -36,7 +27,7 @@
 #endif
 
 // values for type()
-#define FL_NORMAL_BUTTON	0   /**< value() will be set to 1 during the press of the button and 
+#define FL_NORMAL_BUTTON	0   /**< value() will be set to 1 during the press of the button and
                                          reverts back to 0 when the button is released */
 #define FL_TOGGLE_BUTTON	1   ///< value() toggles between 0 and 1 at every click of the button
 #define FL_RADIO_BUTTON		(FL_RESERVED_TYPE+2) /**< is set to 1 at button press, and all other
@@ -51,7 +42,7 @@ class Fl_Widget_Tracker;
 /**
   \class Fl_Button
   \brief Buttons generate callbacks when they are clicked by the user.
-  
+
   You control exactly when and how by changing the values for type() and
   when().  Buttons can also generate callbacks in response to \c FL_SHORTCUT
   events.  The button can either have an explicit shortcut(int s) value or a
@@ -81,6 +72,7 @@ class Fl_Widget_Tracker;
          (when the user pushes and releases the button, and as the mouse is
 	 dragged around in and out of the button).
 */
+
 class FL_EXPORT Fl_Button : public Fl_Widget {
 
   int shortcut_;
@@ -93,7 +85,7 @@ protected:
   static Fl_Widget_Tracker *key_release_tracker;
   static void key_release_timeout(void*);
   void simulate_key_action();
-  
+
   virtual void draw();
 
 public:
@@ -159,6 +151,10 @@ public:
   /**
     Sets the down box type. The default value of 0 causes FLTK to figure out
     the correct matching down version of box().
+
+    Some derived classes (e.g. Fl_Round_Button and Fl_Light_Button use
+    down_box() for special purposes. See docs of these classes.
+
     \param[in] b down box type
    */
   void down_box(Fl_Boxtype b) {down_box_ = b;}
@@ -176,5 +172,5 @@ public:
 #endif
 
 //
-// End of "$Id: Fl_Button.H 7903 2010-11-28 21:06:39Z matt $".
+// End of "$Id$".
 //

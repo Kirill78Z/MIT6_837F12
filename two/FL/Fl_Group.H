@@ -1,24 +1,15 @@
 //
-// "$Id: Fl_Group.H 8157 2011-01-01 14:01:53Z AlbrechtS $"
+// "$Id$"
 //
 // Group header file for the Fast Light Tool Kit (FLTK).
 //
 // Copyright 1998-2010 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -39,8 +30,13 @@
   The Fl_Group class is the FLTK container widget. It maintains
   an array of child widgets. These children can themselves be any widget
   including Fl_Group. The most important subclass of Fl_Group
-  is Fl_Window, however groups can also be used to control radio buttons 
+  is Fl_Window, however groups can also be used to control radio buttons
   or to enforce resize behavior.
+
+  The tab and arrow keys are used to move the focus between widgets of
+  this group, and to other groups. The only modifier grabbed is shift
+  (for shift-tab), so that ctrl-tab, alt-up, and such are free
+  for the app to use as shortcuts.
 */
 class FL_EXPORT Fl_Group : public Fl_Widget {
 
@@ -129,12 +125,14 @@ public:
     In these examples the gray area is the resizable:
 
     \image html resizebox1.png
+
+    <br>
     
     \image html resizebox2.png
     
     \image latex resizebox1.png "before resize"  width=4cm
     
-    \image latex resizebox2.png "after resize"   width=4cm
+    \image latex resizebox2.png "after resize"   width=4.85cm
 
     The resizable may be set to the group itself, in which case all the
     contents are resized. This is the default value for Fl_Group,
@@ -226,5 +224,5 @@ public:
 #endif
 
 //
-// End of "$Id: Fl_Group.H 8157 2011-01-01 14:01:53Z AlbrechtS $".
+// End of "$Id$".
 //

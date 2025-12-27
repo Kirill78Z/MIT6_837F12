@@ -1,24 +1,15 @@
 //
-// "$Id: Fl_Widget.H 8623 2011-04-24 17:09:41Z AlbrechtS $"
+// "$Id$"
 //
 // Widget header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2010 by Bill Spitzak and others.
+// Copyright 1998-2015 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -37,7 +28,7 @@
   \todo	typedef's fl_intptr_t and fl_uintptr_t should be documented.
 */
 #ifdef _WIN64
-#ifdef __GNUC__
+#if defined(__GNUC__) || defined(__clang__)
 #include <stdint.h>
 #else
 #include <stddef.h>  // M$VC
@@ -65,10 +56,11 @@ typedef void (Fl_Callback1)(Fl_Widget*, long);
 
 /** This struct stores all information for a text or mixed graphics label.
 
-    \todo For FLTK 1.3, the Fl_Label type will become a widget by itself. That way
-          we will be avoiding a lot of code duplication by handling labels in 
+    \todo There is an aspiration that the Fl_Label type will become a widget by itself.
+          That way we will be avoiding a lot of code duplication by handling labels in
           a similar fashion to widgets containing text. We also provide an easy
           interface for very complex labels, containing html or vector graphics.
+          However, this re-factoring is not in place in this release.
  */
 struct FL_EXPORT Fl_Label {
   /** label text */
@@ -177,8 +169,10 @@ protected:
         TOOLTIP_WINDOW  = 1<<13,  ///< a temporary popup, transparent to events, and dismissed easily (Fl_Window)
         MODAL           = 1<<14,  ///< a window blocking input to all other winows (Fl_Window)
         NO_OVERLAY      = 1<<15,  ///< window not using a hardware overlay plane (Fl_Menu_Window)
-        GROUP_RELATIVE  = 1<<16,  ///< position this widget relative to the parent group, not to the window
+        GROUP_RELATIVE  = 1<<16,  ///< Reserved, not implemented. DO NOT USE.
         COPIED_TOOLTIP  = 1<<17,  ///< the widget tooltip is internally copied, its destruction is handled by the widget
+        FULLSCREEN      = 1<<18,  ///< a fullscreen window (Fl_Window)
+        MAC_USE_ACCENTS_MENU = 1<<19, ///< On the Mac OS platform, pressing and holding a key on the keyboard opens an accented-character menu window (Fl_Input_, Fl_Text_Editor)
         // (space for more flags)
         USERFLAG3       = 1<<29,  ///< reserved for 3rd party extensions
         USERFLAG2       = 1<<30,  ///< reserved for 3rd party extensions
@@ -241,6 +235,16 @@ public:
       \see Fl_Event
    */
   virtual int handle(int event);
+
+  /** Returns whether the current label was assigned with copy_label().
+
+      This can be useful for temporarily overwriting the widget's label
+      and restoring it later.
+
+      \retval 0 current label was assigned with label().
+      \retval 1 current label was assigned with copy_label().
+  */
+  int is_label_copied() const {return ((flags_ & COPIED_LABEL) ? 1 : 0);}
 
   /** Returns a pointer to the parent widget.  
       Usually this is a Fl_Group or Fl_Window. 
@@ -580,7 +584,7 @@ public:
       \param[in] cb new callback
       \param[in] p user data
    */
-  void callback(Fl_Callback1*cb, long p=0) {callback_=(Fl_Callback*)cb; user_data_=(void*)p;}
+  void callback(Fl_Callback1*cb, long p=0) {callback_=(Fl_Callback*)cb; user_data_=(void*)(fl_intptr_t)p;}
 
   /** Gets the user data for this widget.
       Gets the current user data (void *) argument that is passed to the callback function.
@@ -595,6 +599,8 @@ public:
   void user_data(void* v) {user_data_ = v;}
 
   /** Gets the current user data (long) argument that is passed to the callback function.
+      \todo The user data value must be implemented using \em intptr_t or similar
+      to avoid 64-bit machine incompatibilities.
    */
   long argument() const {return (long)(fl_intptr_t)user_data_;}
 
@@ -602,7 +608,7 @@ public:
       \todo The user data value must be implemented using \em intptr_t or similar
       to avoid 64-bit machine incompatibilities.
    */
-  void argument(long v) {user_data_ = (void*)v;}
+  void argument(long v) {user_data_ = (void*)(fl_intptr_t)v;}
 
   /** Returns the conditions under which the callback is called.
 
@@ -784,6 +790,18 @@ public:
    */
   void clear_changed() {flags_ &= ~CHANGED;}
 
+  /** Marks the widget as inactive without sending events or changing focus.
+      This is mainly for specialized use, for normal cases you want deactivate().
+      \see deactivate()
+   */
+  void clear_active() {flags_ |= INACTIVE;}
+
+  /** Marks the widget as active without sending events or changing focus.
+      This is mainly for specialized use, for normal cases you want activate().
+      \see activate()
+   */
+  void set_active() {flags_ &= ~INACTIVE;}
+
   /** Gives the widget the keyboard focus.
       Tries to make this widget be the Fl::focus() widget, by first sending 
       it an FL_FOCUS event, and if it returns non-zero, setting 
@@ -819,12 +837,20 @@ public:
    */
   unsigned int  visible_focus() { return flags_ & VISIBLE_FOCUS; }
 
-  /** Sets the default callback for all widgets.
-      Sets the default callback, which puts a pointer to the widget on the queue 
-      returned by Fl::readqueue(). You may want to call this from your own callback.
-      \param[in] cb the new callback
-      \param[in] d user data associated with that callback
-      \see callback(), do_callback(), Fl::readqueue()
+  /** The default callback for all widgets that don't set a callback.
+
+    This callback function puts a pointer to the widget on the queue
+    returned by Fl::readqueue().
+
+    Relying on the default callback and reading the callback queue with
+    Fl::readqueue() is not recommended. If you need a callback, you should
+    set one with Fl_Widget::callback(Fl_Callback *cb, void *data)
+    or one of its variants.
+
+    \param[in] cb the widget given to the callback
+    \param[in] d user data associated with that callback
+
+    \see callback(), do_callback(), Fl::readqueue()
    */
   static void default_callback(Fl_Widget *cb, void *d);
 
@@ -840,7 +866,7 @@ public:
       \param[in] arg call the callback with \p arg as the user data argument
       \see callback()
    */
-  void do_callback(Fl_Widget* o,long arg) {do_callback(o,(void*)arg);}
+  void do_callback(Fl_Widget* o,long arg) {do_callback(o,(void*)(fl_intptr_t)arg);}
 
   // Causes a widget to invoke its callback function with arbitrary arguments.
   // Documentation and implementation in Fl_Widget.cxx
@@ -852,6 +878,9 @@ public:
   static unsigned int label_shortcut(const char *t);
   /* Internal use only. */
   static int test_shortcut(const char*, const bool require_alt = false);
+  /* Internal use only. */
+  void _set_fullscreen() {flags_ |= FULLSCREEN;}
+  void _clear_fullscreen() {flags_ &= ~FULLSCREEN;}
 
   /** Checks if w is a child of this widget.
       \param[in] w potential child widget
@@ -860,13 +889,13 @@ public:
    */
   int contains(const Fl_Widget *w) const ;
 
-  /** Checks if this widget is a child of w.
-      Returns 1 if this widget is a child of \p w, or is
-      equal to \p w. Returns 0 if \p w is NULL.
-      \param[in] w the possible parent widget.
+  /** Checks if this widget is a child of \p wgt.
+      Returns 1 if this widget is a child of \p wgt, or is
+      equal to \p wgt. Returns 0 if \p wgt is NULL.
+      \param[in] wgt the possible parent widget.
       \see contains()
    */
-  int inside(const Fl_Widget* w) const {return w ? w->contains(this) : 0;}
+  int inside(const Fl_Widget* wgt) const {return wgt ? wgt->contains(this) : 0;}
 
   /** Schedules the drawing of the widget.
       Marks the widget as needing its draw() routine called.
@@ -920,15 +949,16 @@ public:
 
   /** Sets width ww and height hh accordingly with the label size.
       Labels with images will return w() and h() of the image.
+      
+      This calls fl_measure() internally. For more information about
+      the arguments \p ww and \p hh and word wrapping
+      \see fl_measure(const char*, int&, int&, int)
    */
   void measure_label(int& ww, int& hh) const {label_.measure(ww, hh);}
 
-  /** Returns a pointer to the primary Fl_Window widget.
-      \retval  NULL if no window is associated with this widget.  
-      \note for an Fl_Window widget, this returns its <I>parent</I> window 
-            (if any), not <I>this</I> window.
-   */
   Fl_Window* window() const ;
+  Fl_Window* top_window() const;
+  Fl_Window* top_window_offset(int& xoff, int& yoff) const;
 
   /** Returns an Fl_Group pointer if this widget is an Fl_Group.
 
@@ -981,6 +1011,10 @@ public:
    */
   virtual class Fl_Gl_Window* as_gl_window() {return 0;}
   
+  /** Returns non zero if MAC_USE_ACCENTS_MENU flag is set, 0 otherwise. 
+   */
+  int use_accents_menu() { return flags() & MAC_USE_ACCENTS_MENU; }
+  
   /** For back compatibility only.
       \deprecated Use selection_color() instead.
   */
@@ -1002,5 +1036,5 @@ public:
 #endif
 
 //
-// End of "$Id: Fl_Widget.H 8623 2011-04-24 17:09:41Z AlbrechtS $".
+// End of "$Id$".
 //

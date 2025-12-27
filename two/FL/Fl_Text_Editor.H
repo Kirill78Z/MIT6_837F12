@@ -1,5 +1,5 @@
 //
-// "$Id: Fl_Text_Editor.H 7903 2010-11-28 21:06:39Z matt $"
+// "$Id$"
 //
 // Header file for Fl_Text_Editor class.
 //
@@ -7,20 +7,11 @@
 // Original code Copyright Mark Edel.  Permission to distribute under
 // the LGPL for the FLTK library granted by Mark Edel.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -40,18 +31,18 @@
 #define FL_TEXT_EDITOR_ANY_STATE  (-1L)
 
 /**
-  This is the FLTK text editor widget. It allows the user to
-  edit multiple lines of text and supports highlighting and
-  scrolling. The buffer that is displayed in the widget is managed
-  by the Fl_Text_Buffer
-  class.
+  This is the FLTK text editor widget.
+
+  It allows the user to edit multiple lines of text and supports highlighting
+  and scrolling. The buffer that is displayed in the widget is managed
+  by the Fl_Text_Buffer class.
 */
 class FL_EXPORT Fl_Text_Editor : public Fl_Text_Display {
   public:
-    /** Key function binding callback type */
+    /** Key function binding callback type. */
     typedef int (*Key_Func)(int key, Fl_Text_Editor* editor);
 
-    /** Simple linked list associating a key/state to a function */
+    /** Simple linked list item associating a key/state to a function. */
     struct Key_Binding {
       int          key;		///< the key pressed
       int          state;	///< the state of key modifiers
@@ -75,8 +66,13 @@ class FL_EXPORT Fl_Text_Editor : public Fl_Text_Display {
     */
     int insert_mode() { return insert_mode_; }
 
+#if FLTK_ABI_VERSION >= 10304
+    void tab_nav(int val);
+    int tab_nav() const;
+#endif
+
     void add_key_binding(int key, int state, Key_Func f, Key_Binding** list);
-    /** Adds a key of state "state" with the function "function" */
+    /** Adds a \p key of state \p state with the function \p f. */
     void add_key_binding(int key, int state, Key_Func f)
       { add_key_binding(key, state, f, &key_bindings); }
     void remove_key_binding(int key, int state, Key_Binding** list);
@@ -87,10 +83,19 @@ class FL_EXPORT Fl_Text_Editor : public Fl_Text_Display {
     /** Removes all of the key bindings associated with the text editor or list. */
     void remove_all_key_bindings() { remove_all_key_bindings(&key_bindings); }
     void add_default_key_bindings(Key_Binding** list);
+#if FLTK_ABI_VERSION < 10304
+    // OLD: non-const
     Key_Func bound_key_function(int key, int state, Key_Binding* list);
     /**  Returns the function associated with a key binding. */
     Key_Func bound_key_function(int key, int state)
       { return bound_key_function(key, state, key_bindings); }
+#else
+    // NEW: const (STR#3306)
+    Key_Func bound_key_function(int key, int state, Key_Binding* list) const;
+    /**  Returns the function associated with a key binding. */
+    Key_Func bound_key_function(int key, int state) const
+      { return bound_key_function(key, state, key_bindings); }
+#endif
     /**  Sets the default key function for unassigned keys. */
     void default_key_function(Key_Func f) { default_key_function_ = f; }
 
@@ -128,7 +133,18 @@ class FL_EXPORT Fl_Text_Editor : public Fl_Text_Display {
 #ifndef FL_DOXYGEN
     int insert_mode_;
     Key_Binding* key_bindings;
+#endif
+
+    /** Global key binding list.
+
+      Derived classes can add key bindings for all Fl_Text_Editor widgets
+      by adding a Key_Binding to this list.
+
+      \see add_key_binding(int key, int state, Key_Func f, Key_Binding** list);
+    */
     static Key_Binding* global_key_bindings;
+
+#ifndef FL_DOXYGEN
     Key_Func default_key_function_;
 #endif
 };
@@ -136,6 +152,6 @@ class FL_EXPORT Fl_Text_Editor : public Fl_Text_Display {
 #endif
 
 //
-// End of "$Id: Fl_Text_Editor.H 7903 2010-11-28 21:06:39Z matt $".
+// End of "$Id$".
 //
 

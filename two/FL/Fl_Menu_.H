@@ -1,24 +1,15 @@
 //
-// "$Id: Fl_Menu_.H 7903 2010-11-28 21:06:39Z matt $"
+// "$Id$"
 //
 // Menu base class header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2010 by Bill Spitzak and others.
+// Copyright 1998-2016 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -38,12 +29,24 @@
 
 /**
   Base class of all widgets that have a menu in FLTK.
-  Currently FLTK provides you with 
-  Fl_Menu_Button, Fl_Menu_Bar, and Fl_Choice.
-  
-  <P>The class contains a pointer to an array of structures of type  Fl_Menu_Item.  The
-  array may either be supplied directly by the user program, or it may
+
+  Currently FLTK provides you with Fl_Menu_Button, Fl_Menu_Bar, and Fl_Choice.
+
+  The class contains a pointer to an array of structures of type Fl_Menu_Item.
+  The array may either be supplied directly by the user program, or it may
   be "private": a dynamically allocated array managed by the Fl_Menu_.
+
+  When the user clicks a menu item, value() is set to that item
+  and then:
+
+    - If the Fl_Menu_Item has a callback set, that callback
+      is invoked with any userdata configured for it.
+      (The Fl_Menu_ widget's callback is NOT invoked.)
+
+    - For any Fl_Menu_Items that \b don't have a callback set,
+      the Fl_Menu_ widget's callback is invoked with any userdata
+      configured for it. The callback can determine which item
+      was picked using value(), mvalue(), item_pathname(), etc.
 */
 class FL_EXPORT Fl_Menu_ : public Fl_Widget {
 
@@ -58,6 +61,8 @@ protected:
   Fl_Fontsize textsize_;
   Fl_Color textcolor_;
 
+  int item_pathname_(char *name, int namelen, const Fl_Menu_Item *finditem,
+                     const Fl_Menu_Item *menu=0) const;
 public:
   Fl_Menu_(int,int,int,int,const char * =0);
   ~Fl_Menu_();
@@ -87,12 +92,26 @@ public:
   /**
     Returns a pointer to the array of Fl_Menu_Items.  This will either be
     the value passed to menu(value) or the private copy.
-  */  
+    \sa size() -- returns the size of the Fl_Menu_Item array.
+
+    \b Example: How to walk the array:
+    \code
+    for ( int t=0; t<menubar->size(); t++ ) {                // walk array of items
+        const Fl_Menu_Item &item = menubar->menu()[t];       // get each item
+        fprintf(stderr, "item #%d -- label=%s, value=%s type=%s\n",
+            t,
+            item.label() ? item.label() : "(Null)",          // menu terminators have NULL labels
+            (item.flags & FL_MENU_VALUE) ? "set" : "clear",  // value of toggle or radio items
+            (item.flags & FL_SUBMENU) ? "Submenu" : "Item"); // see if item is a submenu or actual item
+    }
+    \endcode
+
+  */
   const Fl_Menu_Item *menu() const {return menu_;}
   void menu(const Fl_Menu_Item *m);
   void copy(const Fl_Menu_Item *m, void* user_data = 0);
   int insert(int index, const char*, int shortcut, Fl_Callback*, void* = 0, int = 0);
-  int  add(const char*, int shortcut, Fl_Callback*, void* = 0, int = 0);
+  int  add(const char*, int shortcut, Fl_Callback*, void* = 0, int = 0); // see src/Fl_Menu_add.cxx
   /** See int Fl_Menu_::add(const char* label, int shortcut, Fl_Callback*, void *user_data=0, int flags=0) */
   int  add(const char* a, const char* b, Fl_Callback* c, void* d = 0, int e = 0) {
       return add(a,fl_old_shortcut(b),c,d,e);
@@ -108,7 +127,7 @@ public:
   int clear_submenu(int index);
   void replace(int,const char *);
   void remove(int);
- /** Changes the shortcut of item i to n.  */
+  /** Changes the shortcut of item \p i to \p s. */
   void shortcut(int i, int s) {menu_[i].shortcut(s);}
   /** Sets the flags of item i.  For a list of the flags, see Fl_Menu_Item.  */
   void mode(int i,int fl) {menu_[i].flags = fl;}
@@ -147,9 +166,9 @@ public:
 
   /**
     This box type is used to surround the currently-selected items in the
-    menus.  If this is FL_NO_BOX then it acts like 
-    FL_THIN_UP_BOX and selection_color() acts like 
-    FL_WHITE, for back compatibility.    
+    menus.  If this is FL_NO_BOX then it acts like
+    FL_THIN_UP_BOX and selection_color() acts like
+    FL_WHITE, for back compatibility.
   */
   Fl_Boxtype down_box() const {return (Fl_Boxtype)down_box_;}
   /**    See Fl_Boxtype Fl_Menu_::down_box() const   */
@@ -159,10 +178,11 @@ public:
   Fl_Color down_color() const {return selection_color();}
   /** For back compatibility, same as selection_color() */
   void down_color(unsigned c) {selection_color(c);}
+  void setonly(Fl_Menu_Item* item);
 };
 
 #endif
 
 //
-// End of "$Id: Fl_Menu_.H 7903 2010-11-28 21:06:39Z matt $".
+// End of "$Id$".
 //

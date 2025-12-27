@@ -1,24 +1,15 @@
 //
-// "$Id: win32.H 8726 2011-05-23 18:32:47Z AlbrechtS $"
+// "$Id$"
 //
 // WIN32 header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2011 by Bill Spitzak and others.
+// Copyright 1998-2012 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -82,19 +73,25 @@ public:
   int wait_for_expose;
   HDC private_dc; // used for OpenGL
   HCURSOR cursor;
+  int custom_cursor;
   HDC saved_hdc;  // saves the handle of the DC currently loaded
   // static variables, static functions and member functions
   static Fl_X* first;
   static Fl_X* i(const Fl_Window* w) {return w->i;}
   static int fake_X_wm(const Fl_Window* w,int &X, int &Y,
 		                 int &bt,int &bx,int &by);
+  void make_fullscreen(int X, int Y, int W, int H);
   void setwindow(Fl_Window* wi) {w=wi; wi->i=this;}
   void flush() {w->flush();}
   void set_minmax(LPMINMAXINFO minmax);
   void mapraise();
+  static void set_default_icons(const Fl_RGB_Image*[], int);
+  static void set_default_icons(HICON, HICON);
+  void set_icons();
+  int set_cursor(Fl_Cursor);
+  int set_cursor(const Fl_RGB_Image*, int, int);
   static Fl_X* make(Fl_Window*);
 };
-extern FL_EXPORT HCURSOR fl_default_cursor;
 extern FL_EXPORT UINT fl_wake_msg;
 extern FL_EXPORT char fl_override_redirect; // hack into Fl_Window::make_xid()
 extern FL_EXPORT int fl_background_pixel;  // hack into Fl_Window::make_xid()
@@ -103,6 +100,8 @@ extern FL_EXPORT void fl_release_dc(HWND w, HDC dc);
 extern FL_EXPORT void fl_save_dc( HWND w, HDC dc);
 
 inline Window fl_xid(const Fl_Window* w) { Fl_X *temp = Fl_X::i(w); return temp ? temp->xid : 0; }
+
+extern FL_EXPORT void fl_open_display();
 
 #else
 FL_EXPORT Window fl_xid_(const Fl_Window* w);
@@ -145,7 +144,6 @@ typedef HBITMAP Fl_Offscreen;
 
 
 FL_EXPORT void fl_copy_offscreen(int x,int y,int w,int h,HBITMAP pixmap,int srcx,int srcy);
-FL_EXPORT void fl_copy_offscreen_with_alpha(int x,int y,int w,int h,HBITMAP pixmap,int srcx,int srcy);
 #define fl_delete_offscreen(bitmap) DeleteObject(bitmap)
 
 // Bitmap masks
@@ -161,5 +159,5 @@ inline void fl_open_callback(void (*)(const char *)) {}
 extern FL_EXPORT int fl_parse_color(const char* p, uchar& r, uchar& g, uchar& b);
 #endif // FL_DOXYGEN
 //
-// End of "$Id: win32.H 8726 2011-05-23 18:32:47Z AlbrechtS $".
+// End of "$Id$".
 //

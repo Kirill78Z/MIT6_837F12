@@ -1,24 +1,15 @@
 //
-// "$Id: Fl_Menu_Button.H 8016 2010-12-12 11:19:12Z manolo $"
+// "$Id$"
 //
 // Menu button header file for the Fast Light Tool Kit (FLTK).
 //
 // Copyright 1998-2010 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -51,10 +42,18 @@
   callbacks exactly the same as when you pick the item with the mouse.
   The '&' character in menu item names are only looked at when the menu is
   popped up, however. </P>
-  <P>When the user picks an item off the menu, the item's callback is
-  done with the menu_button as the Fl_Widget* argument.  If the
-  item does not have a callback the menu_button's callback is done
-  instead.
+
+  When the user clicks a menu item, value() is set to that item
+  and then:
+
+      - The item's callback is done if one has been set; the
+        Fl_Menu_Button is passed as the Fl_Widget* argument, 
+        along with any userdata configured for the callback.
+
+      - If the item does not have a callback, the Fl_Menu_Button's callback
+        is done instead, along with any userdata configured for it.
+        The callback can determine which item was picked using
+        value(), mvalue(), item_pathname(), etc.
 */
 class FL_EXPORT Fl_Menu_Button : public Fl_Menu_ {
 protected:
@@ -82,5 +81,5 @@ public:
 #endif
 
 //
-// End of "$Id: Fl_Menu_Button.H 8016 2010-12-12 11:19:12Z manolo $".
+// End of "$Id$".
 //

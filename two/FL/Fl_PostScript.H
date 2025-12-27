@@ -1,46 +1,44 @@
 //
-// "$Id: Fl_PostScript.H 8699 2011-05-20 16:39:06Z manolo $"
+// "$Id$"
 //
 // Support for graphics output to PostScript file for the Fast Light Tool Kit (FLTK).
 //
 // Copyright 2010-2011 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
 //     http://www.fltk.org/str.php
 //
+
 /** \file Fl_PostScript.H 
  \brief declaration of classes Fl_PostScript_Graphics_Driver, Fl_PostScript_File_Device.
  */
-
 
 #ifndef Fl_PostScript_H
 #define Fl_PostScript_H
 
 #include <FL/Fl_Paged_Device.H>
 #include <FL/fl_draw.H>
+#include <stdarg.h>
+
+/* Signature of Fl_PostScript::close_command() functions passed as parameters. */
+extern "C" {
+  typedef int (Fl_PostScript_Close_Command)(FILE *);
+}
 
 /**
  \brief PostScript graphical backend.
  *
- PostScript text uses vectorial fonts for the latin alphabet (exactly: all unicode
- characters between U+0020 and U+017F, that is, ASCII, Latin-1 Supplement and Latin Extended-A charts)
- plus a few other characters:
+ PostScript text uses vectorial fonts when using the FLTK standard fonts  
+ and the latin alphabet or a few other characters listed in the following table.
+ The latin alphabet means all unicode characters between U+0020 and U+017F, or, in other words, 
+ the ASCII, Latin-1 Supplement and Latin Extended-A charts.
  <table>
  <tr> <th>Char</th><th>Codepoint</th><th>Name</th>  <th>Char</th><th>Codepoint</th><th>Name</th> <th>Char</th><th>Codepoint</th><th>Name</th></tr>
  <tr><td>ƒ</td><td>U+0192</td><td>florin</td><td>‚</td><td>U+201A</td><td>quotesinglbase</td><td>™</td><td>U+2122</td><td>trademark</td></tr>
@@ -57,12 +55,19 @@
  <tr><td>‘</td><td>U+2018</td><td>quoteleft</td><td>/</td><td>U+2044</td><td>fraction</td><td>ﬂ</td><td>U+FB02</td><td>fl</td></tr>
  <tr><td>’</td><td>U+2019</td><td>quoteright</td><td>€</td><td>U+20AC</td><td>Euro</td><td></td><td>U+F8FF</td><td>apple (Mac OS only)</td></tr>
  </table>
- <br> All other unicode characters are output as a bitmap.
- <br> FLTK standard fonts are output using PostScript standard fonts: Helvetica, Courier, 
- Times (and their bold, oblique, italic variants).
+ <br> All other unicode characters or all other fonts (FL_FREE_FONT and above) are output as a bitmap.
+ <br> FLTK standard fonts are output using the corresponding PostScript standard fonts.
  */
 class FL_EXPORT Fl_PostScript_Graphics_Driver : public Fl_Graphics_Driver {
-public: 
+private:
+  void transformed_draw_extra(const char* str, int n, double x, double y, int w, bool rtl);
+  void *prepare_rle85();
+  void write_rle85(uchar b, void *data);
+  void close_rle85(void *data);
+  void *prepare85();
+  void write85(void *data, const uchar *p, int len);
+  void close85(void *data);
+public:
   static const char *class_id;
   const char *class_name() {return class_id;};
   Fl_PostScript_Graphics_Driver();
@@ -98,7 +103,7 @@ class Clip {
   int mx; // width of mask;
   int my; // mask lines
   //Fl_Color bg_;
-  int (*close_cmd_)(FILE *);
+  Fl_PostScript_Close_Command* close_cmd_;
   int page_policy_;
   int nPages;
   int orientation_;
@@ -125,7 +130,7 @@ class Clip {
  
   void page_policy(int p);
   int page_policy(){return page_policy_;};
-  void close_command( int (*cmd)(FILE *)){close_cmd_=cmd;};
+  void close_command(Fl_PostScript_Close_Command* cmd){close_cmd_=cmd;};
   FILE * file() {return output;};
   //void orientation (int o);
   //Fl_PostScript_Graphics_Driver(FILE *o, int lang_level, int pages = 0); // ps (also multi-page) constructor
@@ -193,29 +198,34 @@ class Clip {
   void draw_image(Fl_Draw_Image_Cb call, void* data, int x,int y, int w, int h, int delta=3);
   void draw_image_mono(Fl_Draw_Image_Cb call, void* data, int x,int y, int w, int h, int delta=1);
       
-  void draw(const char* s, int n, int x, int y) {transformed_draw(s,n,x,y); };
+  void draw(const char* s, int nBytes, int x, int y) {transformed_draw(s,nBytes,x,y); };
 #ifdef __APPLE__
-  void draw(const char* s, int n, float x, float y) {transformed_draw(s,n,x,y); };
+  void draw(const char* s, int nBytes, float x, float y) {transformed_draw(s,nBytes,x,y); };
 #endif
   void draw(int angle, const char *str, int n, int x, int y);
   void rtl_draw(const char* s, int n, int x, int y);
   void font(int face, int size);
   double width(const char *, int);
+  double width(unsigned int u);
   void text_extents(const char *c, int n, int &dx, int &dy, int &w, int &h);
   int height();
   int descent();
   void draw(Fl_Pixmap * pxm,int XP, int YP, int WP, int HP, int cx, int cy);
   void draw(Fl_Bitmap * bitmap,int XP, int YP, int WP, int HP, int cx, int cy);
   void draw(Fl_RGB_Image * rgb,int XP, int YP, int WP, int HP, int cx, int cy);
+  int draw_scaled(Fl_Image *img, int XP, int YP, int WP, int HP);
+  int clocale_printf(const char *format, ...);
   ~Fl_PostScript_Graphics_Driver();
 };
 
 /**
- \brief To send graphical output to a PostScript file.
+ To send graphical output to a PostScript file.
+ This class is used exactly as the Fl_Printer class except for the start_job() call,
+ two variants of which are usable and allow to specify what page format and layout are desired.
  */
 class FL_EXPORT Fl_PostScript_File_Device : public Fl_Paged_Device {
 #ifdef __APPLE__
-  Fl_CGContextRef gc;
+  CGContextRef gc;
 #endif
 protected:
   Fl_PostScript_Graphics_Driver *driver();
@@ -224,7 +234,8 @@ public:
   const char *class_name() {return class_id;};
   Fl_PostScript_File_Device();
   ~Fl_PostScript_File_Device();
-  int start_job(int pagecount, enum Fl_Paged_Device::Page_Format format = Fl_Paged_Device::A4, 
+  int start_job(int pagecount, int* from, int* to);
+  int start_job(int pagecount, enum Fl_Paged_Device::Page_Format format = Fl_Paged_Device::A4,
 		enum Fl_Paged_Device::Page_Layout layout = Fl_Paged_Device::PORTRAIT);
   int start_job(FILE *ps_output, int pagecount, enum Fl_Paged_Device::Page_Format format = Fl_Paged_Device::A4, 
 		enum Fl_Paged_Device::Page_Layout layout = Fl_Paged_Device::PORTRAIT);
@@ -249,5 +260,5 @@ public:
 #endif // Fl_PostScript_H
 
 //
-// End of "$Id: Fl_PostScript.H 8699 2011-05-20 16:39:06Z manolo $"
+// End of "$Id$"
 //

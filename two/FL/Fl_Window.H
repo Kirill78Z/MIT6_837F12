@@ -1,42 +1,41 @@
 //
-// "$Id: Fl_Window.H 8593 2011-04-15 21:38:05Z manolo $"
+// "$Id$"
 //
 // Window header file for the Fast Light Tool Kit (FLTK).
 //
-// Copyright 1998-2010 by Bill Spitzak and others.
+// Copyright 1998-2012 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
 //     http://www.fltk.org/str.php
 //
 
-/* \file
+/** \file
    Fl_Window widget . */
 
 #ifndef Fl_Window_H
 #define Fl_Window_H
 
+#ifdef WIN32
+#include <windows.h>
+#endif
+
 #include "Fl_Group.H"
+#include "Fl_Bitmap.H"
+#include <stdlib.h>
 
 #define FL_WINDOW 0xF0		///< window type id all subclasses have type() >= this
 #define FL_DOUBLE_WINDOW 0xF1   ///< double window type id
 
 class Fl_X;
+class Fl_RGB_Image;
+
 
 /**
   This widget produces an actual window.  This can either be a main
@@ -58,22 +57,106 @@ class Fl_X;
 class FL_EXPORT Fl_Window : public Fl_Group {
 
   static char *default_xclass_;
+  // Note: we must use separate statements for each of the following 8 variables,
+  // with the static attribute, otherwise MS VC++ 2008/2010 complains :-(
+  // AlbrechtS 04/2012
+#if FLTK_ABI_VERSION < 10301
+  static // when these members are static, ABI compatibility with 1.3.0 is respected
+#endif
+  int no_fullscreen_x;
+#if FLTK_ABI_VERSION < 10301
+  static // when these members are static, ABI compatibility with 1.3.0 is respected
+#endif
+  int no_fullscreen_y;
+#if FLTK_ABI_VERSION < 10301
+  static // when these members are static, ABI compatibility with 1.3.0 is respected
+#endif
+  int no_fullscreen_w;
+#if FLTK_ABI_VERSION < 10301
+  static // when these members are static, ABI compatibility with 1.3.0 is respected
+#endif
+  int no_fullscreen_h;
+#if FLTK_ABI_VERSION < 10303
+  static // when these members are static, ABI compatibility with 1.3.0 is respected
+#endif
+  int fullscreen_screen_top;
+#if FLTK_ABI_VERSION < 10303
+  static // when these members are static, ABI compatibility with 1.3.0 is respected
+#endif
+  int fullscreen_screen_bottom;
+#if FLTK_ABI_VERSION < 10303
+  static // when these members are static, ABI compatibility with 1.3.0 is respected
+#endif
+  int fullscreen_screen_left;
+#if FLTK_ABI_VERSION < 10303
+  static // when these members are static, ABI compatibility with 1.3.0 is respected
+#endif
+  int fullscreen_screen_right;
 
   friend class Fl_X;
   Fl_X *i; // points at the system-specific stuff
 
+  struct icon_data {
+    const void *legacy_icon;
+    Fl_RGB_Image **icons;
+    int count;
+#ifdef WIN32
+    HICON big_icon;
+    HICON small_icon;
+#endif
+  };
+
   const char* iconlabel_;
   char* xclass_;
-  const void* icon_;
+  struct icon_data *icon_;
   // size_range stuff:
   int minw, minh, maxw, maxh;
   int dw, dh, aspect;
   uchar size_range_set;
   // cursor stuff
   Fl_Cursor cursor_default;
+#if FLTK_ABI_VERSION < 10303
+  // legacy, not used
   Fl_Color cursor_fg, cursor_bg;
+#endif
+  
+protected:
+  /** Data supporting a non-rectangular window shape */
+  struct shape_data_type {
+    int lw_; ///<  width of shape image
+    int lh_; ///<  height of shape image
+    Fl_Image* shape_; ///<  shape image
+#if defined(__APPLE__)
+    typedef struct CGImage* CGImageRef;
+    CGImageRef mask;
+#endif
+    Fl_Bitmap *todelete_; ///<  auxiliary bitmap image
+  };
+
+#if FLTK_ABI_VERSION < 10303 && !defined(FL_DOXYGEN)
+  static
+#endif
+  shape_data_type *shape_data_; ///< non-null means the window has a non-rectangular shape
+private:
+  void shape_bitmap_(Fl_Image* b);
+  void shape_alpha_(Fl_Image* img, int offset);
+  void shape_pixmap_(Fl_Image* pixmap);
+public:
+  void shape(const Fl_Image* img);
+  /** Set the window's shape with an Fl_Image.
+   \see void shape(const Fl_Image* img)
+   */
+  inline void shape(const Fl_Image& b) { shape(&b); }
+#if ! (defined(WIN32) || defined(__APPLE__) || defined(FL_DOXYGEN))
+  void combine_mask(void);
+#endif
+private:
+
+
   void size_range_();
   void _Fl_Window(); // constructor innards
+  void fullscreen_x(); // platform-specific part of sending a window to full screen
+  void fullscreen_off_x(int X, int Y, int W, int H);// platform-specific part of leaving full screen
 
   // unimplemented copy ctor and assignment operator
   Fl_Window(const Fl_Window&);
@@ -108,6 +191,8 @@ protected:
     \see force_position(int)
   */
   int force_position() const { return ((flags() & FORCE_POSITION)?1:0); }
+
+  void free_icons();
 
 public:
 
@@ -173,7 +258,7 @@ public:
     dimensions. It is up to the application developer to verify window 
     parameters after the resize request.
   */
-  virtual void resize(int,int,int,int);
+  virtual void resize(int X,int Y,int W,int H);
   /**
     Sets whether or not the window manager border is around the
     window.  The default value is true. void border(int) can be
@@ -215,6 +300,45 @@ public:
   unsigned int non_modal() const {return flags() & (NON_MODAL|MODAL);}
 
   /**
+    Clears the "modal" flags and converts a "modal" or "non-modal"
+    window back into a "normal" window.
+
+    Note that there are <I>three</I> states for a window: modal,
+    non-modal, and normal.
+
+    You can not change the "modality" of a window whilst
+    it is shown, so it is necessary to first hide() the window,
+    change its "modality" as required, then re-show the window
+    for the new state to take effect.
+
+    This method can also be used to change a "modal" window into a
+    "non-modal" one. On several supported platforms, the "modal" state
+    over-rides the "non-modal" state, so the "modal" state must be
+    cleared before the window can be set into the "non-modal"
+    state.
+    In general, the following sequence should work:
+
+    \code
+    win->hide();
+    win->clear_modal_states();
+    //Set win to new state as desired, or leave "normal", e.g...
+    win->set_non_modal();
+    win->show();
+    \endcode
+
+    \note Under some window managers, the sequence of hiding the
+    window and changing its modality will often cause it to be
+    re-displayed at a different position when it is subsequently
+    shown. This is an irritating feature but appears to be
+    unavoidable at present.
+    As a result we would advise to use this method only when
+    absolutely necessary.
+
+    \see void set_modal(), void set_non_modal()
+  */
+  void clear_modal_states() {clear_flag(NON_MODAL | MODAL);}
+
+  /**
     Marks the window as a menu window.
 
     This is intended for internal use, but it can also be used if you
@@ -231,7 +355,7 @@ public:
 
   /**  Returns true if this window is a menu window. */
   unsigned int menu_window() const {return flags() & MENU_WINDOW;}
-
+  
   /**
     Marks the window as a tooltip window.
 
@@ -279,17 +403,17 @@ public:
     Sets the allowable range the user can resize this window to.
     This only works for top-level windows.
     <UL>
-    <LI>minw and minh are the smallest the window can be.
+    <LI>\p minw and \p minh are the smallest the window can be.
 	Either value must be greater than 0.</LI>
-    <LI>maxw and maxh are the largest the window can be. If either is
+    <LI>\p maxw and \p maxh are the largest the window can be. If either is
 	<I>equal</I> to the minimum then you cannot resize in that direction.
 	If either is zero  then FLTK picks a maximum size in that direction
 	such that the window will fill the screen.</LI>
-    <LI>dw and dh are size increments.  The  window will be constrained
+    <LI>\p dw and \p dh are size increments.  The  window will be constrained
 	to widths of minw + N * dw,  where N is any non-negative integer.
 	If these are less or equal to 1 they are ignored (this is ignored
 	on WIN32).</LI>
-    <LI>aspect is a flag that indicates that the window should preserve its
+    <LI>\p aspect is a flag that indicates that the window should preserve its
 	aspect ratio.  This only works if both the maximum and minimum have
 	the same aspect ratio (ignored on WIN32 and by many X window managers).
 	</LI>
@@ -311,8 +435,16 @@ public:
     It is undefined what happens if the current size does not fit in the
     constraints passed to size_range().
   */
-  void size_range(int a, int b, int c=0, int d=0, int e=0, int f=0, int g=0) {
-    minw=a; minh=b; maxw=c; maxh=d; dw=e; dh=f; aspect=g; size_range_();}
+  void size_range(int minw, int minh, int maxw=0, int maxh=0, int dw=0, int dh=0, int aspect=0) {
+    this->minw   = minw;
+    this->minh   = minh;
+    this->maxw   = maxw;
+    this->maxh   = maxh;
+    this->dw     = dw;
+    this->dh     = dh;
+    this->aspect = aspect;
+    size_range_();
+  }
 
   /** See void Fl_Window::label(const char*)   */
   const char* label() const	{return Fl_Widget::label();}
@@ -330,6 +462,18 @@ public:
   static const char *default_xclass();
   const char* xclass() const;
   void xclass(const char* c);
+
+  static void default_icon(const Fl_RGB_Image*);
+  static void default_icons(const Fl_RGB_Image*[], int);
+  void icon(const Fl_RGB_Image*);
+  void icons(const Fl_RGB_Image*[], int);
+
+#ifdef WIN32
+  static void default_icons(HICON big_icon, HICON small_icon);
+  void icons(HICON big_icon, HICON small_icon);
+#endif
+
+  /* for legacy compatibility */
   const void* icon() const;
   void icon(const void * ic);
 
@@ -347,11 +491,22 @@ public:
     top.  This is really convenient because your program can call show()
     at any time, even if the window is already up.  It also means that
     show() serves the purpose of raise() in other toolkits.
-    
+
     Fl_Window::show(int argc, char **argv) is used for top-level
     windows and allows standard arguments to be parsed from the
     command-line.
-    
+
+    \note For some obscure reasons Fl_Window::show() resets the current
+    group by calling Fl_Group::current(0). The comments in the code
+    say "get rid of very common user bug: forgot end()". Although
+    this is true it may have unwanted side effects if you show() an
+    unrelated window (maybe for an error message or warning) while
+    building a window or any other group widget.
+
+    \todo Check if we can remove resetting the current group in a later
+    FLTK version (after 1.3.x). This may break "already broken" programs
+    though if they rely on this "feature".
+
     \see Fl_Window::show(int argc, char **argv)
   */
   virtual void show();
@@ -381,17 +536,46 @@ public:
     \see virtual void Fl_Window::show()
   */
   void show(int argc, char **argv);
+
+  // Enables synchronous show(), docs in Fl_Window.cxx
+  void wait_for_expose();
+
   /**
-    Makes the window completely fill the screen, without any window
-    manager border visible.  You must use fullscreen_off() to undo
-    this. This may not work with all window managers.
+    Makes the window completely fill one or more screens, without any
+    window manager border visible.  You must use fullscreen_off() to
+    undo this. 
+
+    \note On some platforms, this can result in the keyboard being
+    grabbed. The window may also be recreated, meaning hide() and
+    show() will be called.
+
+    \see void Fl_Window::fullscreen_screens()
   */
   void fullscreen();
+  /**
+    Turns off any side effects of fullscreen()
+  */
+  void fullscreen_off();
   /**
     Turns off any side effects of fullscreen() and does 
     resize(x,y,w,h).
   */
-  void fullscreen_off(int,int,int,int);
+  void fullscreen_off(int X,int Y,int W,int H);
+  /**
+    Returns non zero if FULLSCREEN flag is set, 0 otherwise. 
+  */
+  unsigned int fullscreen_active() const { return flags() & FULLSCREEN; }
+  /**
+    Sets which screens should be used when this window is in fullscreen
+    mode. The window will be resized to the top of the screen with index
+    \p top, the bottom of the screen with index \p bottom, etc. 
+
+    If this method is never called, or if any argument is < 0, then the
+    window will be resized to fill the screen it is currently on.
+
+    \see void Fl_Window::fullscreen()
+    */
+  void fullscreen_screens(int top, int bottom, int left, int right);
   /**
     Iconifies the window.  If you call this when shown() is false
     it will show() it as an icon.  If the window is already
@@ -434,14 +618,17 @@ public:
     is different.
 
     The type Fl_Cursor is an enumeration defined in <FL/Enumerations.H>.
-    (Under X you can get any XC_cursor value by passing 
-    Fl_Cursor((XC_foo/2)+1)).  The colors only work on X, they are
-    not implemented on WIN32.
 
-    For back compatibility only.
+    \see cursor(const Fl_RGB_Image*, int, int), default_cursor()
   */
-  void cursor(Fl_Cursor, Fl_Color=FL_BLACK, Fl_Color=FL_WHITE); // platform dependent
-  void default_cursor(Fl_Cursor, Fl_Color=FL_BLACK, Fl_Color=FL_WHITE);
+  void cursor(Fl_Cursor);
+  void cursor(const Fl_RGB_Image*, int, int);
+  void default_cursor(Fl_Cursor);
+
+  /* for legacy compatibility */
+  void cursor(Fl_Cursor c, Fl_Color, Fl_Color=FL_WHITE);
+  void default_cursor(Fl_Cursor c, Fl_Color, Fl_Color=FL_WHITE);
+
   static void default_callback(Fl_Window*, void* v);
   
   /** Returns the window width including any frame added by the window manager.
@@ -461,5 +648,5 @@ public:
 #endif
 
 //
-// End of "$Id: Fl_Window.H 8593 2011-04-15 21:38:05Z manolo $".
+// End of "$Id$".
 //

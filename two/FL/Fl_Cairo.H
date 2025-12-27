@@ -1,24 +1,15 @@
 //
-// "$Id: Fl_Cairo.H 8198 2011-01-06 10:24:58Z manolo $"
+// "$Id$"
 //
 // Main header file for the Fast Light Tool Kit (FLTK).
 //
 // Copyright 1998-2010 by Bill Spitzak and others.
 //
-// This library is free software; you can redistribute it and/or
-// modify it under the terms of the GNU Library General Public
-// License as published by the Free Software Foundation; either
-// version 2 of the License, or (at your option) any later version.
+// This library is free software. Distribution and use rights are outlined in
+// the file "COPYING" which should have been included with this file.  If this
+// file is missing or damaged, see the license at:
 //
-// This library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-// Library General Public License for more details.
-//
-// You should have received a copy of the GNU Library General Public
-// License along with this library; if not, write to the Free Software
-// Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
-// USA.
+//     http://www.fltk.org/COPYING.php
 //
 // Please report all bugs and problems on the following page:
 //
@@ -38,15 +29,7 @@
 
 # include <FL/Fl_Export.H>
 
-# if defined(USE_X11) // X11
-#  include <cairo-xlib.h>
-# elif defined(WIN32)
-#  include <cairo-win32.h>
-# elif defined(__APPLE_QUARTZ__)
-#  include <cairo-quartz.h>
-# else
-#  error Cairo is not supported on that platform.
-# endif
+# include <cairo.h>
 
 /** 
    \addtogroup group_cairo
@@ -67,9 +50,16 @@ public:
     // access attributes
     cairo_t* cc() const {return cc_;}		 ///< Gets the current cairo context
     bool autolink() const {return autolink_;}	 ///< Gets the autolink option. See Fl::cairo_autolink_context(bool)
-    /** Sets the current cairo context, \p own indicates cc deletion is handle externally by user */
-    void cc(cairo_t* c, bool own=true)  {	 
-	if (cc_ && own_cc_) cairo_destroy(cc_); 
+    /** Sets the current cairo context.
+
+	\p own == \e true (the default) indicates that the cairo context \p c
+	will be deleted by FLTK internally when another cc is set later.
+
+	\p own == \e false indicates cc deletion is handled externally
+	by the user program.
+    */
+    void cc(cairo_t* c, bool own=true)  {
+	if (cc_ && own_cc_) cairo_destroy(cc_);
 	cc_=c;
 	if (!cc_) window_=0;
 	own_cc_=own;
@@ -83,7 +73,8 @@ public:
 private:
     cairo_t * cc_;	 // contains the unique autoupdated cairo context
     bool own_cc_;	 // indicates whether we must delete the cc, useful for internal cleanup
-    bool autolink_;	 // true by default, permits to prevent the automatic cairo mapping on fltk windows for custom cairo implementations
+    bool autolink_;	 // false by default, prevents the automatic cairo mapping on fltk windows
+			 // for custom cairo implementations.
     void* window_, *gc_; // for keeping track internally of last win+gc treated
 };
 
@@ -93,5 +84,5 @@ private:
 #endif // FL_CAIRO_H
 
 //
-// End of "$Id: Fl_Cairo.H 8198 2011-01-06 10:24:58Z manolo $" .
+// End of "$Id$" .
 //
