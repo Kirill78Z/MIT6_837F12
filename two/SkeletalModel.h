@@ -74,13 +74,16 @@ public:
 private:
 
 	// pointer to the root joint
-	Joint* m_rootJoint;
+	Joint* m_rootJoint = nullptr;
 	// the list of joints.
 	std::vector< Joint* > m_joints;
 
 	Mesh m_mesh;
 
 	MatrixStack m_matrixStack;
+
+	void drawJointsRecursive(const Joint* parent);
+	void drawSkeletonRecursive(const Joint* parent);
 };
 
 #endif

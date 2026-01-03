@@ -16,7 +16,6 @@ public:
 private:
 
 	std::vector< Matrix4f > m_matrices;
-
 };
 
 #endif // MATRIX_STACK_H
