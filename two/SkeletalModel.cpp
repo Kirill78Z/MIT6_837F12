@@ -186,6 +186,17 @@ void SkeletalModel::computeBindWorldToJointTransforms()
 	//
 	// This method should update each joint's bindWorldToJointTransform.
 	// You will need to add a recursive helper function to traverse the joint hierarchy.
+
+	computeBindWorldToJointTransformsRecursive(m_rootJoint, Matrix4f::identity());
+}
+
+void SkeletalModel::computeBindWorldToJointTransformsRecursive(Joint* joint, const Matrix4f& parentBindWorldToJointTransform)
+{
+	joint->bindWorldToJointTransform = joint->transform.inverse() * parentBindWorldToJointTransform; //TODO right order???
+	for (auto child : joint->children)
+	{
+		computeBindWorldToJointTransformsRecursive(child, joint->bindWorldToJointTransform);
+	}
 }
 
 void SkeletalModel::updateCurrentJointToWorldTransforms()
@@ -196,8 +207,18 @@ void SkeletalModel::updateCurrentJointToWorldTransforms()
 	// The current pose is defined by the rotations you've applied to the
 	// joints and hence needs to be *updated* every time the joint angles change.
 	//
-	// This method should update each joint's bindWorldToJointTransform.
+	// This method should update each joint's currentJointToWorldTransform.
 	// You will need to add a recursive helper function to traverse the joint hierarchy.
+	updateCurrentJointToWorldTransformsRecursive(m_rootJoint, Matrix4f::identity());
+}
+
+void SkeletalModel::updateCurrentJointToWorldTransformsRecursive(Joint* joint, const Matrix4f& parentCurrentJointToWorldTransform)
+{
+	joint->currentJointToWorldTransform = parentCurrentJointToWorldTransform * joint->transform; //TODO right order???
+	for (auto child : joint->children)
+	{
+		updateCurrentJointToWorldTransformsRecursive(child, joint->currentJointToWorldTransform);
+	}
 }
 
 void SkeletalModel::updateMesh()
@@ -207,5 +228,29 @@ void SkeletalModel::updateMesh()
 	// given the current state of the skeleton.
 	// You will need both the bind pose world --> joint transforms.
 	// and the current joint --> world transforms.
+
+	for (size_t vertNum = 0; vertNum < m_mesh.bindVertices.size(); ++vertNum)
+	{
+		Vector3f weightedAveragePoint(0, 0, 0);
+		assert(m_mesh.attachments[vertNum].size() == m_joints.size());
+		bool weightedAveragePointInit = false;
+		for (size_t jointNum = 0; jointNum < m_mesh.attachments[vertNum].size(); ++jointNum)
+		{
+			auto weight = m_mesh.attachments[vertNum][jointNum];
+			if (weight == 0.0f)
+				continue;
+
+			auto currWeightedPoint = weight
+				* (m_joints[jointNum]->currentJointToWorldTransform
+				* (m_joints[jointNum]->bindWorldToJointTransform
+				* Vector4f(m_mesh.bindVertices[vertNum], 1)));
+			weightedAveragePoint += currWeightedPoint.xyz();
+			weightedAveragePointInit = true;
+		}
+
+		assert(weightedAveragePointInit);
+		m_mesh.currentVertices[vertNum] = weightedAveragePoint;
+	}
+
 }
 

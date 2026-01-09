@@ -84,6 +84,10 @@ private:
 
 	void drawJointsRecursive(const Joint* parent);
 	void drawSkeletonRecursive(const Joint* parent);
+
+	static void computeBindWorldToJointTransformsRecursive(Joint* joint, const Matrix4f& parentBindWorldToJointTransform);
+
+	static void updateCurrentJointToWorldTransformsRecursive(Joint* joint, const Matrix4f& parentCurrentJointToWorldTransform);
 };
 
 #endif
